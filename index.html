@@ -188,7 +188,8 @@ input[type=search]::-ms-clear,input[type=search]::-ms-reveal{display:none;width:
 .song:hover{background:var(--surface-2)}
 .song.active{background:var(--primary-container)}
 .song.active::before{content:"";position:absolute;left:0;top:20%;bottom:20%;width:4px;border-radius:4px;background:var(--primary)}
-.s-cover{width:44px;height:44px;border-radius:10px;object-fit:cover;background:var(--surface-3);flex:none;box-shadow:var(--shadow-1)}
+.s-cover{width:44px;height:44px;border-radius:10px;background:linear-gradient(135deg,var(--surface-3),var(--surface-2));flex:none;box-shadow:var(--shadow-1);display:flex;align-items:center;justify-content:center;color:var(--text-3)}
+.s-cover svg{width:20px;height:20px}
 .song.active .s-cover{border:2px solid var(--primary)}
 .s-info{flex:1;min-width:0}
 .s-name{font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--text)}
@@ -228,7 +229,8 @@ input[type=search]::-ms-clear,input[type=search]::-ms-reveal{display:none;width:
 .cover-ring .disc-hole{
   position:absolute;top:50%;left:50%;width:22px;height:22px;transform:translate(-50%,-50%);
   border-radius:50%;background:var(--surface-hi);z-index:2;
-  box-shadow:inset 0 0 0 3px var(--surface-3),0 1px 3px rgba(0,0,0,.25);
+  /* 洞边缘与外圈黑胶渐变一致（#222），不再用浅色描边 */
+  box-shadow:inset 0 0 0 3px #222,0 1px 3px rgba(0,0,0,.25);
 }
 @keyframes spin{to{transform:rotate(360deg)}}
 
@@ -291,6 +293,23 @@ input[type=range]::-moz-range-track{background:transparent}
 .credit a{color:var(--text-3);text-decoration:none}
 .credit a:hover{color:var(--primary);text-decoration:underline}
 .list-credit{list-style:none;text-align:center;font-size:10.5px;color:var(--text-3);padding:16px 14px 20px;line-height:1.7}
+
+/* 空状态引导（无搜索结果时） */
+.empty-state{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;padding:80px 24px 40px;text-align:center;list-style:none}
+.empty-state .empty-icon{width:64px;height:64px;border-radius:50%;background:var(--surface-2);display:flex;align-items:center;justify-content:center;color:var(--primary);opacity:.85;margin-bottom:4px}
+.empty-state .empty-icon svg{width:30px;height:30px}
+.empty-state p{font-size:14.5px;font-weight:600;color:var(--text-2)}
+.empty-state small{font-size:12px;color:var(--text-3)}
+
+/* 加载更多按钮 */
+.load-more{display:flex;justify-content:center;padding:8px 0 4px;list-style:none}
+.load-more button{
+  padding:9px 28px;border-radius:20px;font-size:13px;font-weight:600;color:var(--primary);
+  background:var(--surface-2);transition:background .15s;display:inline-flex;align-items:center;gap:7px;min-width:120px;justify-content:center;
+}
+.load-more button:hover:not(:disabled){background:var(--surface-3)}
+.load-more button:disabled{opacity:.55;cursor:default}
+.load-more .spin{width:13px;height:13px;border-radius:50%;border:2px solid var(--primary);border-top-color:transparent;animation:spin .7s linear infinite}
 
 /* ============ 移动端迷你播放条 ============ */
 #mobileBar{
@@ -469,7 +488,7 @@ html[data-theme="dark"] #loading{background:rgba(13,20,32,.55)}
         <button id="nextBtn" class="icon-btn" title="下一首"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg></button>
       </div>
       <div class="c-group c-right">
-        <button id="dlBtn" class="icon-btn" title="下载音乐"></button>
+        <button id="dlBtn" class="icon-btn" title="下载音乐"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg></button>
         <div class="vol-wrap">
           <button id="volBtn" class="icon-btn" title="音量"></button>
           <div class="vol-pop" id="volPop" hidden>
@@ -508,7 +527,7 @@ html[data-theme="dark"] #loading{background:rgba(13,20,32,.55)}
       <button id="mbNext" class="icon-btn" title="下一首"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg></button>
     </div>
     <div class="mb-side">
-      <button id="mbDl" class="icon-btn" title="下载"></button>
+      <button id="mbDl" class="icon-btn" title="下载"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg></button>
       <div class="vol-wrap">
         <button id="mbVol" class="icon-btn" title="音量"></button>
         <div class="vol-pop" id="mbVolPop" hidden>
@@ -577,7 +596,29 @@ const SOURCES = [
   { v:'tencent',  label:'腾讯音乐' }
 ];
 const BR_LABEL = { 128:'标准 128kbps', 192:'较高 192kbps', 320:'高品 320kbps', 740:'16bit 无损', 999:'24bit 无损' };
-const HOT_TAGS = ['周杰伦','林俊杰','陈奕迅','许嵩','邓紫棋','海阔天空','孤勇者','稻香'];
+/* 默认标签：内置知名音乐人池（华语 / 日韩 / 欧美），每次刷新随机抽取展示 */
+const ARTIST_TAGS = [
+  /* 华语 */
+  '周杰伦','林俊杰','邓紫棋','五月天','伍佰','张学友','陈奕迅','蔡依林','李宗盛','王菲',
+  '许嵩','薛之谦','李荣浩','孙燕姿','张信哲','刘德华','那英','朴树','李健','刀郎',
+  /* 日韩 */
+  '星野源','米津玄师','宇多田光','久石让','中岛美嘉','BTS','BLACKPINK','IU',
+  /* 欧美 */
+  'Queen','The Beatles','Michael Jackson','Taylor Swift','Ed Sheeran','Adele','Kanye West','Coldplay',
+  'Bob Dylan','Beyoncé','Drake','Billie Eilish','The Weeknd','Daft Punk','Bruno Mars','Linkin Park',
+  'Maroon 5','Rihanna','Eminem','Lady Gaga'
+];
+/* 随机标签数量可配置：每次展示 5~8 个 */
+const TAG_COUNT_MIN = 5, TAG_COUNT_MAX = 8;
+function randomTags(){
+  const n = TAG_COUNT_MIN + Math.floor(Math.random() * (TAG_COUNT_MAX - TAG_COUNT_MIN + 1));
+  const pool = ARTIST_TAGS.slice();
+  const out = [];
+  while (out.length < n && pool.length){
+    out.push(pool.splice(Math.floor(Math.random() * pool.length), 1)[0]);
+  }
+  return out;
+}
 
 const ICONS = {
   repeat:      'M7 7h10v3l4-4-4-4v3H5v6h2V7zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2v4z',
@@ -607,15 +648,22 @@ const state = {
   current: -1,
   mode: ['list','one','shuffle'].includes(lsSavedMode) ? lsSavedMode : 'list',  // list | one | shuffle
   view: 'search',    // search | fav
+  search: null,      // 分页状态 { kw, page, noMore, loading }
   favs: loadFavs(),
   vol: isFinite(lsSavedVol) && lsSavedVol >= 0 && lsSavedVol <= 1 ? lsSavedVol : 0.8,
   muted: false,
-  lyrics: [],        // [{t,text,tr}]
-  lyricsLoaded: false
+  lyrics: []        // [{t,text,tr}]
 };
 
 /* ---------- 缓存 / 限流 ---------- */
 const cache = { search:{}, url:{}, lyric:{}, pic:{}, picUrl:{} };
+/* 搜索 / 封面 URL 缓存上限：超出删除最早写入的，防止内存无限增长 */
+const CACHE_MAX = 100;
+function trimCache(obj){
+  const keys = Object.keys(obj);
+  if (keys.length <= CACHE_MAX) return;
+  keys.slice(0, keys.length - CACHE_MAX).forEach(k => delete obj[k]);
+}
 const reqTimes = [];
 /* 限流窗口与 API 文档一致：5 分钟 50 次 */
 const RATE_WINDOW = 5 * 60 * 1000, RATE_LIMIT = 50;
@@ -653,13 +701,66 @@ let searchTok = 0; /* 搜索令牌：防止旧搜索响应覆盖新搜索 */
 async function search(kw, token){
   if (token === undefined) token = ++searchTok;
   const key = state.source + '|' + kw;
-  if (cache.search[key]) { if (token === searchTok){ state.playlist = cache.search[key]; renderList(); } return; }
-  const j = await apiReq({ types:'search', source:state.source, name:kw, count:20 }, true);
+  let j;
+  if (cache.search[key]) j = cache.search[key];
+  else {
+    /* 首次搜索只取 10 条，更多结果通过「加载更多」分页追加 */
+    j = await apiReq({ types:'search', source:state.source, name:kw, count:10 }, true);
+    if (!Array.isArray(j) || !j.length) throw new Error('empty');
+    cache.search[key] = j; trimCache(cache.search);
+  }
   if (token !== searchTok) return; /* 已被更新的搜索取代 */
-  if (!Array.isArray(j) || !j.length) throw new Error('empty');
-  cache.search[key] = j;
-  state.playlist = j; state.view = 'search'; updateChips('search');
+  /* JOOX 源 count 参数无效（服务端固定返回 30 条），首屏统一只展示 10 条；
+     其余源 count 生效（返回 10 条），slice 后不受影响 */
+  const shown = j.slice(0, 10);
+  keepCurrentIn(shown); /* 新列表替换前同步 current：正在播放的歌在则保持高亮，否则重置 */
+  state.playlist = shown; state.view = 'search';
+  state.search = { kw, page: 1, noMore: j.length < 10, loading: false };
+  updateChips('search');
   renderList();
+}
+/* 加载更多：按 count 递增重新请求，取新增部分追加（保持播放索引不变） */
+async function loadMore(){
+  const st = state.search;
+  if (!st || st.loading || st.noMore) return;
+  st.loading = true; renderList();
+  const tok = searchTok;
+  const nextCount = (st.page + 1) * 10;
+  const key = state.source + '|' + st.kw + '|' + nextCount;
+  let j;
+  try {
+    if (cache.search[key]) j = cache.search[key];
+    else {
+      j = await apiReq({ types:'search', source:state.source, name:st.kw, count:nextCount }, true);
+      if (Array.isArray(j) && j.length){ cache.search[key] = j; trimCache(cache.search); }
+    }
+  } catch(e){
+    if (tok !== searchTok) return;
+    st.loading = false;
+    renderList();
+    toast(e && e.message === 'rate' ? '请求过于频繁（API 限流 5 分钟 50 次），请稍后再试'
+        : '加载更多失败，请重试');
+    return;
+  }
+  if (tok !== searchTok) return; /* 期间用户已发起新搜索，丢弃过期结果 */
+  const prevLen = state.playlist.length;
+  /* 每页固定追加 10 条：JOOX 源 count 无效返回固定 30 条，slice 上限保证 10 条/页；
+     noMore 由 j.length < nextCount 兜底（如 30<40），翻完自动「已无更多」 */
+  const extra = Array.isArray(j) ? j.slice(prevLen, prevLen + 10) : [];
+  st.page++;
+  st.noMore = !Array.isArray(j) || !j.length || j.length < nextCount || extra.length === 0;
+  st.loading = false;
+  if (extra.length) state.playlist = state.playlist.concat(extra);
+  renderList();
+}
+/* 清空搜索结果，回到空状态引导 */
+function clearResults(){
+  state.playlist = [];
+  state.view = 'search';
+  state.search = null;
+  state.current = -1; /* 列表已清空，重置播放索引 */
+  renderList();
+  updateChips('search');
 }
 async function getUrl(song, br = 128, force){
   const key = song.source + '|' + song.id + '|' + br;
@@ -709,7 +810,7 @@ async function getPicUrl(song, size){
   try {
     const j = await apiReq({ types:'pic', source:song.source, id:song.pic_id, size:size||300 });
     if (!j || !j.url) throw new Error('empty');
-    cache.picUrl[key] = j.url;
+    cache.picUrl[key] = j.url; trimCache(cache.picUrl);
     return j.url;
   } catch(e){
     /* 限流/CORS 失败：短暂等待后重试一次（间隔防止雪崩） */
@@ -718,7 +819,7 @@ async function getPicUrl(song, size){
       await sleep(1200);
       const j2 = await apiReq({ types:'pic', source:song.source, id:song.pic_id, size:size||300 });
       if (!j2 || !j2.url) throw new Error('empty');
-      cache.picUrl[key] = j2.url;
+      cache.picUrl[key] = j2.url; trimCache(cache.picUrl);
       return j2.url;
     }
     throw e;
@@ -737,21 +838,8 @@ async function loadPlayerCover(song){
     if (tok === coverTok) set(u);
   } catch(e){ if (tok === coverTok) set(PLACEHOLDER); }
 }
-/* 列表封面懒加载：只在进入视口时请求，避免一次 20 个请求触发限流 */
-const coverObserver = new IntersectionObserver(entries => {
-  for (const en of entries){
-    if (!en.isIntersecting) continue;
-    const img = en.target;
-    coverObserver.unobserve(img);
-    const song = state.playlist[+img.dataset.i];
-    if (!song || !song.pic_id) continue;
-    getPicUrl(song, 300).then(u => { if (img.isConnected) img.src = u; }).catch(()=>{});
-  }
-}, { root: $('#songList'), rootMargin: '40px 0px' });
-function observeListCovers(){
-  coverObserver.disconnect();
-  $$('#songList .s-cover').forEach(img => coverObserver.observe(img));
-}
+/* 列表不加载专辑图片（V2.0）：搜索结果仅展示文本信息 + 占位图标，
+   封面只在播放时按需请求（见 loadPlayerCover）。 */
 
 /* ---------- 歌词解析 ---------- */
 function parseLRC(str){
@@ -770,7 +858,6 @@ function parseLRC(str){
   return [...map.entries()].sort((a,b)=>a[0]-b[0]).map(([t,text]) => ({ t, text, tr:'' }));
 }
 async function loadLyrics(song, tok){
-  state.lyricsLoaded = false;
   let data = {};
   try { data = await getLyrics(song); } catch(e){}
   if (tok !== playTok) return; /* 期间已切歌，丢弃过期歌词，避免错位 */
@@ -792,25 +879,26 @@ async function loadLyrics(song, tok){
     }
   }
   state.lyrics = rows;
-  state.lyricsLoaded = true;
   lastLine = -1; /* 重置高亮状态，按新歌词重新计算 */
   renderLyricBoxes();
   updateLyricHighlight();
 }
-function renderLyricBoxes(){
-  const html = state.lyrics.length
-    ? state.lyrics.map((l,i) => '<div class="lrc-line" data-i="'+i+'">'+esc(l.text)+(l.tr ? '<span class="lrc-tr">'+esc(l.tr)+'</span>' : '')+'</div>').join('')
-    : '<div class="lyric-empty">♪ 暂无歌词</div>';
+function renderLyricBoxes(loadingState){
+  const html = loadingState
+    ? '<div class="lyric-empty">♪ 歌词加载中…</div>'
+    : state.lyrics.length
+      ? state.lyrics.map((l,i) => '<div class="lrc-line" data-i="'+i+'">'+esc(l.text)+(l.tr ? '<span class="lrc-tr">'+esc(l.tr)+'</span>' : '')+'</div>').join('')
+      : '<div class="lyric-empty">♪ 暂无歌词</div>';
   $('#lyricBox').innerHTML = html;
   $('#fullLyricBox').innerHTML = html;
 }
 let lastLine = -1;
 function updateLyricHighlight(){
   const t = audio.currentTime;
-  let idx = -1;
-  for (let i = 0; i < state.lyrics.length; i++){
-    if (state.lyrics[i].t <= t + 0.15) idx = i; else break;
-  }
+  let idx = lastLine;
+  /* 歌词按时间有序：从上次高亮位置双向推进，避免每次从头线性扫描 */
+  while (idx + 1 < state.lyrics.length && state.lyrics[idx + 1].t <= t + 0.15) idx++;
+  while (idx >= 0 && state.lyrics[idx].t > t + 0.15) idx--;
   if (idx !== lastLine){
     lastLine = idx;
     /* 高亮并滚动：PC 容器是 #lyricWrap（滚动条所在），全屏歌词容器是 #fullLyricBox 自身 */
@@ -872,6 +960,9 @@ async function playAt(i){
   const song = state.playlist[i];
   renderPlayer(song);
   updateListActive();
+  /* 切歌立即清空旧歌词并显示加载中，避免残留上一首的歌词 */
+  state.lyrics = []; lastLine = -1;
+  renderLyricBoxes(true);
   loadLyrics(song, tok).catch(()=>{});
   try {
     const d = await getUrl(song, 128);
@@ -944,7 +1035,7 @@ function cycleMode(){
 function rowHtml(s, i){
   const active = i === state.current;
   return '<li class="song'+(active?' active':'')+'" data-i="'+i+'" tabindex="0" role="button" aria-label="播放：'+esc(s.name)+'">' +
-    '<img class="s-cover" data-i="'+i+'" src="'+PLACEHOLDER+'" decoding="async" alt="">' +
+    '<div class="s-cover" aria-hidden="true">'+icon('music')+'</div>' +
     '<div class="s-info"><div class="s-name">'+esc(s.name)+'</div>' +
     '<div class="s-artist">'+esc((s.artist||[]).join(' / '))+(s.album?' · '+esc(s.album):'')+'</div></div>' +
     '<span class="eq"><i></i><i></i><i></i></span>' +
@@ -954,13 +1045,33 @@ function rowHtml(s, i){
 }
 function renderList(){
   const list = state.playlist;
-  /* 出处小字：作为列表最后一项，滚动到列表底部才显示 */
-  $('#songList').innerHTML = list.map((s,i)=>rowHtml(s,i)).join('')
-    + '<li class="list-credit">数据来源 GD音乐台(music.gdstudio.xyz) · 仅供学习交流，请勿商用</li>';
-  $('#listCount').textContent = list.length ? '共 '+list.length+' 首' : (state.view==='fav' ? '还没有收藏的歌曲' : '搜索你想听的音乐');
   const src = SOURCES.find(s=>s.v===state.source);
+  /* 空状态：无搜索词/无收藏时的引导提示 */
+  if (!list.length){
+    $('#songList').innerHTML = '<li class="empty-state"><div class="empty-icon">'+icon('music')+'</div>' +
+      '<p>'+(state.view === 'fav' ? '还没有收藏的歌曲' : '输入关键词开始搜索')+'</p>' +
+      '<small>'+(state.view === 'fav' ? '点击歌曲旁的 ♥ 收藏后，会显示在这里' : '支持搜索歌曲、歌手、专辑')+'</small></li>';
+    $('#listCount').textContent = state.view === 'fav' ? '还没有收藏的歌曲' : '输入关键词开始搜索';
+    $('#listSource').textContent = '';
+    return;
+  }
+  let html = list.map((s,i)=>rowHtml(s,i)).join('');
+  /* 搜索视图：分页「加载更多」（状态明确：加载中 / 已无更多 / 点击加载） */
+  if (state.view === 'search' && state.search){
+    const st = state.search;
+    let btn;
+    if (st.loading) btn = '<button disabled><span class="spin"></span>加载中…</button>';
+    else if (st.noMore) btn = '<button disabled>已无更多</button>';
+    else btn = '<button id="loadMoreBtn">加载更多</button>';
+    html += '<li class="load-more">' + btn + '</li>';
+  }
+  /* 出处小字：作为列表最后一项，滚动到列表底部才显示 */
+  html += '<li class="list-credit">数据来源 GD音乐台(music.gdstudio.xyz) · 仅供学习交流，请勿商用</li>';
+  $('#songList').innerHTML = html;
+  $('#listCount').textContent = list.length ? '共 '+list.length+' 首' : (state.view==='fav' ? '还没有收藏的歌曲' : '输入关键词开始搜索');
   $('#listSource').textContent = list.length ? '音源：' + (src?src.label:'') : '';
-  observeListCovers();
+  const lm = $('#loadMoreBtn');
+  if (lm) lm.addEventListener('click', loadMore);
   updateListActive();
 }
 function updateListActive(){
@@ -968,34 +1079,44 @@ function updateListActive(){
     const i = +li.dataset.i;
     li.classList.toggle('active', i === state.current);
     const t = li.querySelector('.s-time');
-    if (i === state.current && audio.duration && state.current === i){
+    if (i === state.current && audio.duration){
       t.textContent = fmt(audio.duration);
     }
   });
 }
+/* 列表内容替换时同步 current：按 id+source 在当前播放歌曲在新列表中的位置；
+   不在新列表中则重置为 -1（播放不中断，仅列表高亮与切歌归零） */
+function keepCurrentIn(list){
+  const cur = state.current >= 0 ? state.playlist[state.current] : null;
+  if (!cur || !cur.id){ state.current = -1; return; }
+  state.current = list.findIndex(s => s && s.id === cur.id && s.source === cur.source);
+}
 function renderFavs(){
   state.view = 'fav'; state.playlist = state.favs.slice();
+  keepCurrentIn(state.playlist); /* 收藏视图下保持正在播放歌曲的高亮/切歌基准 */
   renderList();
   updateChips('fav');
 }
-function renderSearchView(list){
-  state.view = 'search'; state.playlist = list;
-  renderList();
-  updateChips('search');
-}
 
 /* ---------- 收藏 ---------- */
+const FAV_MAX = 1000; /* 收藏软上限：避免 localStorage 配额耗尽与列表渲染卡顿 */
 function loadFavs(){
   try { return JSON.parse(localStorage.getItem('gdplayer_favs') || '[]'); } catch(e){ return []; }
 }
-function saveFavs(){ localStorage.setItem('gdplayer_favs', JSON.stringify(state.favs)); }
+function saveFavs(){
+  try { localStorage.setItem('gdplayer_favs', JSON.stringify(state.favs)); }
+  catch(e){ toast('收藏写入失败：浏览器存储空间不足，收藏仅本次会话有效'); }
+}
 function isFav(song){ return state.favs.some(f => f.id === song.id && f.source === song.source); }
 function toggleFav(){
   const song = state.playlist[state.current];
   if (!song) return;
   const idx = state.favs.findIndex(f => f.id === song.id && f.source === song.source);
   if (idx >= 0){ state.favs.splice(idx,1); toast('已取消收藏'); }
-  else { state.favs.unshift({ id:song.id, source:song.source, name:song.name, artist:song.artist, album:song.album, pic_id:song.pic_id, lyric_id:song.lyric_id }); toast('已收藏 ♥'); }
+  else {
+    if (state.favs.length >= FAV_MAX){ toast('收藏已达上限（'+FAV_MAX+' 条），请先取消部分收藏'); return; }
+    state.favs.unshift({ id:song.id, source:song.source, name:song.name, artist:song.artist, album:song.album, pic_id:song.pic_id, lyric_id:song.lyric_id }); toast('已收藏 ♥');
+  }
   saveFavs(); updateFavBtn();
 }
 function updateFavBtn(){
@@ -1020,6 +1141,7 @@ function setSource(v){
   toast('已切换音源：' + (SOURCES.find(s=>s.v===v)||{}).label);
   const kw = $('#searchInput').value.trim();
   if (kw) doSearch(kw);
+  else clearResults(); /* 无搜索词：清空旧音源残留列表，避免分页混入新音源结果 */
 }
 function closeSourceMenu(){
   const menu = $('#sourceMenu');
@@ -1061,8 +1183,10 @@ function initSourcePicker(){
 }
 function initChips(){
   const box = $('#chips');
-  const tags = HOT_TAGS.map(t => '<button class="chip" data-kw="'+esc(t)+'">'+esc(t)+'</button>').join('');
-  box.innerHTML = tags + '<button class="chip" id="favChip">'+icon('fav_border')+'我的收藏</button>';
+  /* 「我的收藏」固定在最前端，不参与随机 */
+  const fav = '<button class="chip" id="favChip">'+icon('fav_border')+'我的收藏</button>';
+  const tags = randomTags().map(t => '<button class="chip" data-kw="'+esc(t)+'">'+esc(t)+'</button>').join('');
+  box.innerHTML = fav + tags;
   box.querySelectorAll('[data-kw]').forEach(c => c.addEventListener('click', () => {
     $('#searchInput').value = c.dataset.kw;
     doSearch(c.dataset.kw);
@@ -1179,32 +1303,48 @@ function applyVol(){
   try { localStorage.setItem('gdplayer_volume', String(state.vol)); } catch(e){}
 }
 function toggleMute(){ state.muted = !state.muted; applyVol(); }
-/* 音量弹出浮层：点击图标开合，点外部/Esc 关闭 */
+/* 音量弹出浮层：点击图标开合，点外部/Esc 关闭；方向键调音量时自动闪现 */
+let volFlashTimer = null;
+function closeVolPop(){
+  const volPop = $('#volPop'), mbVolPop = $('#mbVolPop');
+  for (const p of [volPop, mbVolPop]){
+    if (p && p.classList.contains('open')){
+      p.classList.remove('open');
+      setTimeout(() => { if (!p.classList.contains('open')) p.hidden = true; }, 180);
+    }
+  }
+  $('#volBtn').classList.remove('active');
+  $('#mbVol').classList.remove('active');
+}
+function openVolPop(pop, btn){
+  if (pop.classList.contains('open')){ closeVolPop(); return; }
+  closeVolPop();
+  pop.hidden = false;
+  pop.classList.add('open');
+  btn.classList.add('active');
+}
+/* 方向键调音量：自动弹出对应端音量条，2.6 秒无按键后消失（连按重置计时） */
+function flashVolPop(){
+  const isMobile = window.innerWidth <= 899;
+  const pop = isMobile ? $('#mbVolPop') : $('#volPop');
+  const btn = isMobile ? $('#mbVol') : $('#volBtn');
+  if (!pop) return;
+  if (!pop.classList.contains('open')) openVolPop(pop, btn);
+  clearTimeout(volFlashTimer);
+  volFlashTimer = setTimeout(() => { closeVolPop(); volFlashTimer = null; }, 2600);
+}
 function initVolPops(){
   const volPop = $('#volPop'), mbVolPop = $('#mbVolPop');
-  const close = () => {
-    for (const p of [volPop, mbVolPop]){
-      if (p && p.classList.contains('open')){
-        p.classList.remove('open');
-        setTimeout(() => { if (!p.classList.contains('open')) p.hidden = true; }, 180);
-      }
-    }
-    $('#volBtn').classList.remove('active');
-    $('#mbVol').classList.remove('active');
-  };
-  const open = (pop, btn) => {
-    if (pop.classList.contains('open')){ close(); return; }
-    close();
-    pop.hidden = false;
-    pop.classList.add('open');
-    btn.classList.add('active');
-  };
-  $('#volBtn').addEventListener('click', e => { e.stopPropagation(); open(volPop, $('#volBtn')); });
-  $('#mbVol').addEventListener('click', e => { e.stopPropagation(); open(mbVolPop, $('#mbVol')); });
+  $('#volBtn').addEventListener('click', e => { e.stopPropagation(); clearTimeout(volFlashTimer); openVolPop(volPop, $('#volBtn')); });
+  $('#mbVol').addEventListener('click', e => { e.stopPropagation(); clearTimeout(volFlashTimer); openVolPop(mbVolPop, $('#mbVol')); });
+  /* 手动拖滑块时取消自动关闭，避免打断调节 */
+  for (const s of [$('#volSlider'), $('#mbVolSlider')]){
+    if (s) s.addEventListener('pointerdown', () => clearTimeout(volFlashTimer));
+  }
   document.addEventListener('click', e => {
-    if (!e.target.closest('.vol-wrap')) close();
+    if (!e.target.closest('.vol-wrap')) closeVolPop();
   });
-  document.addEventListener('keydown', e => { if (e.key === 'Escape') close(); });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') closeVolPop(); });
 }
 
 /* ---------- 主题 ---------- */
@@ -1266,7 +1406,7 @@ function bind(){
   $('#searchBtn').addEventListener('click', () => doSearch());
   $('#searchInput').addEventListener('keydown', e => { if (e.key === 'Enter') doSearch(); });
   $('#searchInput').addEventListener('input', () => $('#clearSearch').classList.toggle('hidden', !$('#searchInput').value));
-  $('#clearSearch').addEventListener('click', () => { $('#searchInput').value=''; $('#clearSearch').classList.add('hidden'); doSearch('周杰伦'); });
+  $('#clearSearch').addEventListener('click', () => { $('#searchInput').value=''; $('#clearSearch').classList.add('hidden'); clearResults(); });
 
   $('#songList').addEventListener('click', e => {
     const dl = e.target.closest('.s-dl');
@@ -1276,14 +1416,6 @@ function bind(){
     if (dl){ openDlDialog(state.playlist[i]); return; }
     playAt(i);
   });
-  /* 封面加载失败回退占位图（事件委托，捕获阶段；error 不冒泡） */
-  $('#songList').addEventListener('error', e => {
-    const img = e.target;
-    if (img && img.tagName === 'IMG' && img.classList.contains('s-cover') && !img.dataset.failed){
-      img.dataset.failed = 1;
-      img.src = PLACEHOLDER;
-    }
-  }, true);
   /* 键盘支持：Enter/Space 播放聚焦的歌曲项（阻止冒泡避免触发全局切歌/播放快捷键） */
   $('#songList').addEventListener('keydown', e => {
     if (e.key !== 'Enter' && e.key !== ' ') return;
@@ -1316,30 +1448,28 @@ function bind(){
   });
   bindVol($('#volSlider')); bindVol($('#mbVolSlider'));
 
-  const seek = (el, audioEl) => {
+  const seek = (el, timeEl) => {
     el.addEventListener('input', () => {
       const v = +el.value;
       el.style.setProperty('--p', (v/el.max*100) + '%');
-      if (audio.duration) {
-        el.dataset.preview = v/el.max*audio.duration;
-        el.dataset.previewT = fmt(el.dataset.preview);
-      }
+      if (audio.duration) timeEl.textContent = fmt(v/el.max*audio.duration); /* 拖动时实时预览时间 */
     });
     el.addEventListener('change', () => {
       if (audio.duration){ audio.currentTime = (+el.value)/el.max*audio.duration; }
     });
   };
-  seek($('#progress')); seek($('#mbProgress'));
+  seek($('#progress'), $('#curTime'));
+  seek($('#mbProgress'), $('#mbCur'));
 
   audio.addEventListener('timeupdate', () => {
     updatePlayUI();
     updateLyricHighlight();
-    if (audio.duration){
-      const cur = state.playlist[state.current];
-      if (cur){
-        const li = $('#songList .song[data-i="'+state.current+'"]');
-        if (li){ const t = li.querySelector('.s-time'); if (t) t.textContent = fmt(audio.duration); }
-      }
+  });
+  /* 时长确定后一次性更新当前歌曲在列表中的时长显示（避免 timeupdate 高频查 DOM） */
+  audio.addEventListener('durationchange', () => {
+    if (state.current >= 0 && audio.duration){
+      const li = $('#songList .song[data-i="'+state.current+'"]');
+      if (li){ const t = li.querySelector('.s-time'); if (t) t.textContent = fmt(audio.duration); }
     }
   });
   audio.addEventListener('play', updatePlayUI);
@@ -1375,6 +1505,12 @@ function bind(){
   $('#dlCancel').addEventListener('click', closeDlDialog);
   $('#dlConfirm').addEventListener('click', doDownload);
   $('#dlDialog').addEventListener('click', e => { if (e.target === e.currentTarget) closeDlDialog(); });
+  /* Esc 依次关闭：下载对话框 / 全屏歌词 */
+  document.addEventListener('keydown', e => {
+    if (e.key !== 'Escape') return;
+    if (!$('#dlDialog').classList.contains('hidden')) closeDlDialog();
+    if (!$('#fullLyric').classList.contains('hidden')) closeFull();
+  });
 
   // 快捷键
   document.addEventListener('keydown', e => {
@@ -1383,8 +1519,8 @@ function bind(){
     if (e.code === 'Space'){ e.preventDefault(); togglePlay(); }
     else if (e.key === 'ArrowRight') next();
     else if (e.key === 'ArrowLeft') prev();
-    else if (e.key === 'ArrowUp'){ e.preventDefault(); state.muted=false; state.vol=Math.min(1,state.vol+0.1); applyVol(); }
-    else if (e.key === 'ArrowDown'){ e.preventDefault(); state.muted=false; state.vol=Math.max(0,state.vol-0.1); applyVol(); }
+    else if (e.key === 'ArrowUp'){ e.preventDefault(); state.muted=false; state.vol=Math.min(1,state.vol+0.1); applyVol(); flashVolPop(); }
+    else if (e.key === 'ArrowDown'){ e.preventDefault(); state.muted=false; state.vol=Math.max(0,state.vol-0.1); applyVol(); flashVolPop(); }
     else if (e.key === 'm' || e.key === 'M') toggleMute();
   });
 }
@@ -1409,8 +1545,7 @@ function init(){
   window.addEventListener('orientationchange', syncMobileBarHeight);
   renderList();
   renderPlayer(null);
-  // 默认加载一个热门歌手的结果
-  doSearch('周杰伦');
+  /* V2.0：不再自动搜索，避免页面打开即消耗 API 配额；列表显示引导提示 */
 }
 init();
 })();
